@@ -1,3 +1,6 @@
+/* Copyright 2024 王孝慈（laobamac）*/
+/* MIT License */
+
 #include <IOKit/pci/IOPCIDevice.h>
 #include <IOKit/network/IOEthernetController.h>
 #include <IOKit/network/IOEthernetInterface.h>

@@ -1,3 +1,6 @@
+/* Copyright 2024 王孝慈（laobamac）*/
+/* MIT License */
+
 #ifndef __APPLE_IGB_H__
 #define __APPLE_IGB_H__
 
