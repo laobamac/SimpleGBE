@@ -1,5 +1,5 @@
 # SimpleGBE
-A macOS kext for Intel Gbit Ethernet.
+A macOS kext for Intel Gbit Ethernet.<br/>
 macOS下英特尔千兆网卡驱动
 移植自Ubuntu下的网卡驱动,EthernetIgb-5.17.4
 
