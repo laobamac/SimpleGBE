@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: @SPDX@ */
 /* Copyright(c) 2007 - 2024 Intel Corporation. */
-
+/* Copyright 2024 王孝慈（laobamac）*/
+/* MIT License */
 #ifndef _E1000_BASE_H_
 #define _E1000_BASE_H_
 
@@ -122,5 +123,4 @@ union e1000_adv_rx_desc {
 #define E1000_SRRCTL_BSIZEPKT_SHIFT		10 /* Shift _right_ */
 #define E1000_SRRCTL_BSIZEHDRSIZE_SHIFT		2  /* Shift _left_ */
 #define E1000_SRRCTL_DESCTYPE_ADV_ONEBUF	0x02000000
-
 #endif /* _E1000_BASE_H_ */
