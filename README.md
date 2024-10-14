@@ -1,13 +1,15 @@
 # SimpleGBE
-A macOS kext for Intel Gbit Ethernet.<br/>
+A macOS kext for Intel Gbit Ethernet.<br>
+
 macOS下英特尔千兆网卡驱动
+
 移植自Ubuntu下的网卡驱动：EthernetIgb-5.17.4
 
 ## 支持列表
 * I210 千兆卡
 * I211 千兆卡
 * 82575/82576/82580 千兆卡
-* I350/I354 千兆卡
+* I350/I350T4 千兆卡
 
 ## 支持情况
 * IPV4、IPV6自动获取（DHCP）
