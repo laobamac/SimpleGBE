@@ -22,8 +22,8 @@ jobs:
       - run: rm -rf build/*
       - run: xcodebuild -configuration Debug -arch x86_64 build
       - run: xcodebuild -configuration Release -arch x86_64 build
-      - run: zip -q build/Debug/SimpleGBE-DEBUG-DEV.zip build/Debug/SimpleGBE.kext
-      - run: zip -q build/Release/SimpleGBE-RELEASE-DEV.zip build/Release/SimpleGBE.kext
+      - run: zip -q -r build/Debug/SimpleGBE-DEBUG-DEV.zip build/Debug/*
+      - run: zip -q -r build/Release/SimpleGBE-RELEASE-DEV.zip build/Release/*
       - name: Upload to Artifacts
         uses: actions/upload-artifact@v4
         with:
