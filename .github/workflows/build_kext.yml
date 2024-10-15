@@ -21,6 +21,8 @@ jobs:
           submodules: "recursive"
       - run: xcodebuild -configuration Debug -arch x86_64 build
       - run: xcodebuild -configuration Release -arch x86_64 build
+      - run: zip -q -r -o /Users/runner/work/SimpleGBE/SimpleGBE/build/Debug/SimpleGBE-DEBUG.zip /Users/runner/work/SimpleGBE/SimpleGBE/build/Debug/SimpleGBE.kext
+      - run: zip -q -r -o /Users/runner/work/SimpleGBE/SimpleGBE/build/Release/SimpleGBE-RELEASE.zip /Users/runner/work/SimpleGBE/SimpleGBE/build/Release/SimpleGBE.kext
       - name: Upload to Artifacts
         uses: actions/upload-artifact@v4
         with:
