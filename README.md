@@ -17,7 +17,7 @@ macOS下英特尔千兆网卡驱动
 * TSO和TSO6
 * 网线热插拔&插拔后重分配
 * 支持Sequoia
-* ~~强制速率受`igc_ethtool_set_link_ksettings()`影响无法生效~~
+* ~~强制速率受`igb_ethtool_set_link_ksettings()`影响无法生效~~
 * 自v1.0.1开始，支持自定义速率和特大MTU 9000
 
 ## 鸣谢
