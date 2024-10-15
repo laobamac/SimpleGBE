@@ -1,33 +1,26 @@
-name: Build_Kext
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   build:
-    name: Build and analyse default scheme using xcodebuild command
-    runs-on: macos-12
-
+    name: Build
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    env:
+      JOB_TYPE: BUILD
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Set Default Scheme
-        run: |
-          scheme_list=$(xcodebuild -list -json | tr -d "\n")
-          default=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
-          echo $default | cat >default
-          echo Using default scheme: $default
-      - name: Build
-        env:
-          scheme: ${{ 'default' }}
-        run: |
-          if [ $scheme = default ]; then scheme=$(cat default); fi
-          if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
-          file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
-          xcodebuild clean build analyze -scheme "$scheme" -"$filetype_parameter" "$file_to_build" | xcpretty && exit ${PIPESTATUS[0]}
+      - uses: actions/checkout@v4
+        with:
+          submodules: "recursive"
+      - run: xcodebuild -configuration Debug -arch x86_64 build
+      - run: xcodebuild -configuration Release -arch x86_64 build
       - name: Upload to Artifacts
         uses: actions/upload-artifact@v4
         with:
