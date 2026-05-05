@@ -32,6 +32,16 @@ extern "C" {
 #define NETIF_F_TSO
 #define NETIF_F_TSO6
 
+/*
+ * macOS Tahoe (26.x / Darwin 25.x) tightens mbuf zone bounds checking via
+ * Probabilistic GZAlloc. The LRO code in igb_main.c uses Linux sk_buff field
+ * layout (skb->data, skb->len, skb_shinfo) which does not map safely onto
+ * macOS mbuf internals and can produce out-of-bounds accesses that were
+ * silently tolerated on earlier releases but now cause immediate kernel panic.
+ * Disable LRO globally to use the safe per-packet receive path instead.
+ */
+#define IGB_NO_LRO
+
 /* IPv6 flags are not defined in 10.6 headers. */
 enum {
 	CSUM_TCPIPv6             = 0x0020,
@@ -6843,19 +6853,43 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
     unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
 
     unsigned char *va = (u8*)page->getBytesNoCopy() + rx_buffer->page_offset;
-        
+
+    /*
+     * macOS Tahoe compatibility fix:
+     * Sanity-check the hardware-reported size. The DMA buffer is IGB_RX_BUFSZ
+     * bytes; anything larger indicates descriptor corruption and must be
+     * dropped to prevent an mbuf out-of-bounds write -- the root cause of the
+     * kernel panic caught by Probabilistic GZAlloc in macOS Tahoe (26.x).
+     */
+    if (unlikely(size > IGB_RX_BUFSZ)) {
+        pr_err("igb_add_rx_frag: descriptor size %u > IGB_RX_BUFSZ, dropping\n", size);
+        return false;
+    }
+
 #ifdef HAVE_PTP_1588_CLOCK
-        if (igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TSIP)) {
-            igb_ptp_rx_pktstamp(rx_ring->q_vector, va, skb);
-            va += IGB_TS_HDR_LEN;
-            size -= IGB_TS_HDR_LEN;
+    if (igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TSIP)) {
+        igb_ptp_rx_pktstamp(rx_ring->q_vector, va, skb);
+        va += IGB_TS_HDR_LEN;
+        if (unlikely(size < IGB_TS_HDR_LEN)) {
+            pr_err("igb_add_rx_frag: size %u < IGB_TS_HDR_LEN, dropping\n", size);
+            return false;
         }
+        size -= IGB_TS_HDR_LEN;
+    }
 #endif /* HAVE_PTP_1588_CLOCK */
-        
-    if (unlikely(mbuf_copyback(skb, mbuf_pkthdr_len(skb), size,
-                      va, MBUF_WAITOK))) {
-		pr_err("Unexpected mbuf_copyback()\n");
-	}
+
+    /*
+     * mbuf was pre-allocated with IGB_RX_BUFSZ bytes in igb_fetch_rx_buffer
+     * (not IGB_RX_HDR_LEN as before), so mbuf_copyback can always append a
+     * full-sized frame without crossing a cluster boundary.
+     */
+    errno_t copyback_err = mbuf_copyback(skb, mbuf_pkthdr_len(skb), size,
+                                         va, MBUF_WAITOK);
+    if (unlikely(copyback_err != 0)) {
+        pr_err("igb_add_rx_frag: mbuf_copyback failed (err=%d, size=%u)\n",
+               copyback_err, size);
+        return false;
+    }
     return true;
 #else //__APPLE__
     struct page *page = rx_buffer->page;
@@ -6939,18 +6973,23 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
         prefetch(page_addr + L1_CACHE_BYTES);
 #endif
         
-        /* allocate a skb to store the frags */
+        /* allocate a skb to store the frags.
+         *
+         * macOS Tahoe compatibility fix:
+         * Allocate IGB_RX_BUFSZ (2048) bytes instead of IGB_RX_HDR_LEN (256).
+         * The original code relied on mbuf_copyback silently chaining clusters
+         * when the initial allocation was too small. macOS Tahoe's Probabilistic
+         * GZAlloc now catches the resulting out-of-bounds access (21 bytes past
+         * the end of a 512-byte mbuf cluster) and panics immediately.
+         * Pre-allocating a full 2048-byte cluster ensures a standard Ethernet
+         * frame always fits within a single cluster with no chaining required.
+         */
         skb = netdev_alloc_skb_ip_align(rx_ring->netdev,
-                                        IGB_RX_HDR_LEN);
+                                        IGB_RX_BUFSZ);
         if (unlikely(!skb)) {
             rx_ring->rx_stats.alloc_failed++;
             return NULL;
         }
-        /*
-         * we will be copying header into skb->data in
-         * pskb_may_pull so it is in our interest to prefetch
-         * it now to avoid a possible cache miss
-         */
         prefetchw(skb->data);
     }
     
@@ -6969,7 +7008,13 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
 	if (likely(igb_add_rx_frag(rx_ring, rx_buffer, rx_desc, skb))) {
 		igb_reuse_rx_page(rx_ring, rx_buffer);
 	} else {
-		pr_err("Unexpected igb_add_rx_frag()\n");
+		/* igb_add_rx_frag returned false: descriptor was corrupt or
+		 * mbuf_copyback failed. Free the packet and return NULL so
+		 * igb_clean_rx_irq resets the skb pointer for this ring. */
+		SimpleGBE *netdev = (SimpleGBE *)rx_ring->netdev;
+		netdev->freePacket(skb);
+		rx_ring->rx_stats.alloc_failed++;
+		return NULL;
 	}
 
 #else
