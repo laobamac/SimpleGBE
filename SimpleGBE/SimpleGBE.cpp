@@ -5302,7 +5302,7 @@ void igb_update_stats(struct igb_adapter *adapter)
 		packets += ring->rx_stats.packets;
 	}
 	
-	//net_stats->rx_bytes = bytes;
+	((UInt32 *)net_stats)[5] = (UInt32)bytes;  // ifi_ibytes
 	net_stats->inputPackets = (UInt32)packets;
 	
 	bytes = 0;
@@ -5312,7 +5312,7 @@ void igb_update_stats(struct igb_adapter *adapter)
 		bytes += ring->tx_stats.bytes;
 		packets += ring->tx_stats.packets;
 	}
-	//net_stats->tx_bytes = bytes;
+	((UInt32 *)net_stats)[6] = (UInt32)bytes;  // ifi_obytes
 	net_stats->outputPackets =(UInt32) packets;
 	
 	/* read stats registers */
